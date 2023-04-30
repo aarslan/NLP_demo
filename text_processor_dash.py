@@ -52,7 +52,7 @@ app.layout = dbc.Container([
             [dcc.Input(
                          id="seed-input",
                          type='text',
-                         placeholder="What's on your mind?",
+                         placeholder="What's on your mind? Type a topic",
                          debounce=True,
                          n_submit=0),
                     html.Div(id='output_first')
@@ -71,9 +71,15 @@ app.layout = dbc.Container([
     ),
     dbc.Row([
         dbc.Col([html.Div(id='output')]
-                , width=2, style= {'margin-left':'5px', 'margin-top':'20px', 'margin-right':'5px'}),
+                , width=2, style= {'margin-left':'15px', 'margin-top':'20px', 'margin-right':'5px'}),
         dbc.Col([dcc.Graph(id='scatter-plot', figure=fig)])
         ]
+        ),
+    dbc.Row([
+        html.Div([
+            html.P('Data source: Yi Yang, Wen-tau Yih, and Christopher Meek. 2015. WikiQA: A Challenge Dataset for Open-Domain Question Answering. In Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing, pages 2013–2018'),
+        ])
+                ]
         )
     ]
     )
