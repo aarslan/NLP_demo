@@ -101,12 +101,12 @@ def main():
 
     start = st.text_input('What question do you want to start from?', key='start_q')
 
-    def show_qa(data, data_answers):
-        st.write(f'Question: {st.session_state["current_q"]}')
-        qid = data[data['Text'] == st.session_state["current_q"]]['QuestionID'].values[0]
-        answers = data_answers[data_answers.QuestionID == qid]['Text']
-        st.write(f'Answers: {"".join(answers)[:300]}')
-        return
+    # def show_qa(data, data_answers):
+    #     st.write(f'Question: {st.session_state["current_q"]}')
+    #     qid = data[data['Text'] == st.session_state["current_q"]]['QuestionID'].values[0]
+    #     answers = data_answers[data_answers.QuestionID == qid]['Text']
+    #     st.write(f'Answers: {"".join(answers)[:300]}')
+    #     return
 
     if start:
         if 'current_q' not in st.session_state:
@@ -124,10 +124,17 @@ def main():
         input_topic = st.selectbox(
             'Hop on to a relevant question',
             choices,
-            on_change=show_qa, args=(data, data_answers))
+            index=2,
+            # on_change=show_qa,
+        )
+        st.session_state['current_q'] = input_topic
+
+        st.write(f'Question: {st.session_state["current_q"]}')
+        qid = data[data['Text'] == input_topic]['QuestionID'].values[0]
+        answers = data_answers[data_answers.QuestionID == qid]['Text']
+        st.write(f'Answers: {"".join(answers)[:300]}')
 
         st.write(f"you selected {input_topic}")
-        st.session_state['current_q'] = input_topic
         st.session_state['unlocked_q'].append(st.session_state['current_q'])
         st.write(st.session_state['unlocked_q'])
 

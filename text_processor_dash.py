@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 from dash import html
 from dash.dependencies import Input, Output, State
 import random
-import plotly.express as px
+import numpy as np
 import pickle
 import pandas as pd
 from sentence_transformers import SentenceTransformer
@@ -12,7 +12,8 @@ from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances
 import plotly.express as px
-import numpy as np
+import plotly.graph_objs as go
+import plotly.colors as colors
 import os
 import sys
 
@@ -20,6 +21,29 @@ SEED_INPUT = []
 PAST_Q = []
 
 PARENT_DIR = os.path.dirname(sys.path[0]) if os.path.isfile(sys.path[0]) else sys.path[0]
+
+layout = {
+    'showlegend': False,
+    'height':800, 'width':800,
+    'hovermode':"x",
+    'xaxis': {
+        # 'range': [0.2, 1],
+        'showgrid': False, # thin lines in the background
+        'zeroline': False, # thick line at x=0
+        'visible': False,  # numbers below
+    }, # the same for yaxis
+    'yaxis': {
+        # 'range': [0.2, 1],
+        'showgrid': False, # thin lines in the background
+        'zeroline': False, # thick line at x=0
+        'visible': False,  # numbers below
+    }, # the same for yaxis
+}
+
+fig = go.Figure(data=[], layout=layout)
+fig.update_layout({'xaxis':{'visible':False},
+                'yaxis':{'visible':False}})
+
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CERULEAN])
 
 app.layout = dbc.Container([
@@ -39,21 +63,20 @@ app.layout = dbc.Container([
         dbc.Col(
             [dcc.Dropdown(
                          id='my-dropdown',
-                        placeholder='Hop on a question',
+                         placeholder='Hop on a question',
                          options=[],
-                         value=None),
-                     html.Div(id='output')]
+                         value=None)]
             , width=10, style={'margin-left':'15px', 'margin-top':'10px', 'margin-right':'15px'})
     ]
     ),
     dbc.Row([
-        dbc.Col(
-            [dcc.Graph(id='scatter-plot')]
+        dbc.Col([html.Div(id='output')]
+                , width=2, style= {'margin-left':'5px', 'margin-top':'20px', 'margin-right':'5px'}),
+        dbc.Col([dcc.Graph(id='scatter-plot', figure=fig)])
+        ]
         )
     ]
     )
-]
-)
 
 def read_data():
     """Read the data from local."""
@@ -118,11 +141,12 @@ data['Text_vec'] = Text_vec_raw
 embeddings = project_to_manifold(data)
 data['x'], data['y'], data['z'] = embeddings[:, 0], embeddings[:, 1], embeddings[:, 2]
 
-
 clusterer = KMeans(n_clusters=24, random_state=0, n_init="auto").fit(data[['x', 'y', 'z']])
 data['cluster'] = clusterer.labels_
-data['color'] = data['cluster'].astype(str)
-
+# COLOR MAPPING
+categories = data['cluster'].unique()
+# create a list of colors for each point in the trace. %24 is the length of colormap
+data['color'] = [colors.qualitative.Alphabet[cat%24] for cat in data['cluster']]
 
 @app.callback(
     Output('output_first', 'children'),
@@ -158,11 +182,12 @@ def update_options(*vals):
     close_ix = np.argpartition(distances.T, 5)[0]
 
     choices_raw = list(data.iloc[close_ix[:20]]['Text'].values)
-    options = [{'label': f'Option {i}', 'value': i} for i in choices_raw]
+    choices = list(set(choices_raw).difference(set(PAST_Q))) #remove past questions
+    options = [{'label': f'Question: {i}', 'value': i} for i in choices]
 
     # Don't know what this one does
     if selected_value is not None:
-        choices_raw.append({'label': f'Option {selected_value}', 'value': selected_value})
+        choices.append({'label': f'Question: {selected_value}', 'value': selected_value})
     return options
 
 
@@ -189,45 +214,18 @@ def update_scatter_plot(selected_category):
     global PAST_Q
 
     to_show = data[data.Text.isin(PAST_Q + [selected_category] )]
-    fig = px.scatter_3d(
-        to_show,
-        x="x",
-        y="y",
-        z='z',
-        # size=data2['popularity'],
-        # color=data2['color'],
-        # color_discrete_map="identity",
-        color='color',
-        # color_discrete_map="identity",
-        # symbol='Text_type',
-        hover_name="Text",
-        hover_data={ 'Text_type': False, 'x': False, 'y': False, 'z': False},
-        # log_x=True,
-        # opacity=0.5,
-        size_max=20,
+    new_trace = go.Scatter3d(
+        x=to_show["x"],
+        y=to_show["y"],
+        z=to_show['z'],
+        mode='markers',
+        marker=dict(
+            # size=10,
+            color=to_show['color']),
+        hovertemplate='<b>%{text}</b><extra></extra>',
+        text = [title for title in to_show["Text"].values] # [title for title in df.Title],
     )
-
-    layout = {
-        'showlegend': False,
-        'xaxis': {
-            # 'range': [0.2, 1],
-            'showgrid': False, # thin lines in the background
-            'zeroline': False, # thick line at x=0
-            'visible': False,  # numbers below
-        }, # the same for yaxis
-        'yaxis': {
-            # 'range': [0.2, 1],
-            'showgrid': False, # thin lines in the background
-            'zeroline': False, # thick line at x=0
-            'visible': False,  # numbers below
-        }, # the same for yaxis
-    }
-
-    # fig.update_layout(height=800, width=800)
-    # fig.update_layout(hovermode="x")
-    # fig.update_yaxes(automargin=True)
-    fig.update_layout(layout)
-    fig.update_traces(mode="markers", hoverlabel_align = 'right')
+    fig.add_trace(new_trace)
     return fig
 
 if __name__ == '__main__':
