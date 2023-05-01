@@ -3,7 +3,6 @@ from dash import dcc
 import dash_bootstrap_components as dbc
 from dash import html
 from dash.dependencies import Input, Output, State
-import random
 import numpy as np
 import pickle
 import pandas as pd
@@ -11,7 +10,6 @@ from sentence_transformers import SentenceTransformer
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances
-import plotly.express as px
 import plotly.graph_objs as go
 import plotly.colors as colors
 import os
@@ -24,25 +22,25 @@ PARENT_DIR = os.path.dirname(sys.path[0]) if os.path.isfile(sys.path[0]) else sy
 
 layout = {
     'showlegend': False,
-    'height':800, 'width':800,
-    'hovermode':"x",
+    'height': 800, 'width': 800,
+    'hovermode': "x",
     'xaxis': {
         # 'range': [0.2, 1],
-        'showgrid': False, # thin lines in the background
-        'zeroline': False, # thick line at x=0
+        'showgrid': False,  # thin lines in the background
+        'zeroline': False,  # thick line at x=0
         'visible': False,  # numbers below
-    }, # the same for yaxis
+    },  # the same for yaxis
     'yaxis': {
         # 'range': [0.2, 1],
-        'showgrid': False, # thin lines in the background
-        'zeroline': False, # thick line at x=0
+        'showgrid': False,  # thin lines in the background
+        'zeroline': False,  # thick line at x=0
         'visible': False,  # numbers below
-    }, # the same for yaxis
+    },  # the same for yaxis
 }
 
 fig = go.Figure(data=[], layout=layout)
-fig.update_layout({'xaxis':{'visible':False},
-                'yaxis':{'visible':False}})
+fig.update_layout({'xaxis': {'visible': False},
+                   'yaxis': {'visible': False}})
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CERULEAN])
 
@@ -50,39 +48,41 @@ app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(
             [dcc.Input(
-                         id="seed-input",
-                         type='text',
-                         placeholder="What's on your mind? Type a topic",
-                         debounce=True,
-                         n_submit=0),
-                    html.Div(id='output_first')
-            ], width=5, style= {'margin-left':'15px', 'margin-top':'50px', 'margin-right':'15px'})
+                id="seed-input",
+                type='text',
+                placeholder="What's on your mind? Type a topic",
+                debounce=True,
+                n_submit=0),
+                html.Div(id='output_first')
+            ], width=5, style={'margin-left': '15px', 'margin-top': '50px', 'margin-right': '15px'})
     ]
     ),
     dbc.Row([
         dbc.Col(
             [dcc.Dropdown(
-                         id='my-dropdown',
-                         placeholder='Hop on a question',
-                         options=[],
-                         value=None)]
-            , width=10, style={'margin-left':'15px', 'margin-top':'10px', 'margin-right':'15px'})
+                id='my-dropdown',
+                placeholder='Hop on a question',
+                options=[],
+                value=None)]
+            , width=10, style={'margin-left': '15px', 'margin-top': '10px', 'margin-right': '15px'})
     ]
     ),
     dbc.Row([
         dbc.Col([html.Div(id='output')]
-                , width=2, style= {'margin-left':'15px', 'margin-top':'20px', 'margin-right':'5px'}),
+                , width=2, style={'margin-left': '15px', 'margin-top': '20px', 'margin-right': '5px'}),
         dbc.Col([dcc.Graph(id='scatter-plot', figure=fig)])
-        ]
-        ),
+    ]
+    ),
     dbc.Row([
         html.Div([
-            html.P('Data source: Yi Yang, Wen-tau Yih, and Christopher Meek. 2015. WikiQA: A Challenge Dataset for Open-Domain Question Answering. In Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing, pages 2013–2018'),
+            html.P(
+                'Data source: Yi Yang, Wen-tau Yih, and Christopher Meek. 2015. WikiQA: A Challenge Dataset for Open-Domain Question Answering. In Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing, pages 2013–2018'),
         ])
-                ]
-        )
     ]
     )
+]
+)
+
 
 def read_data():
     """Read the data from local."""
@@ -101,16 +101,19 @@ def read_data():
     col_relevant = ['QuestionID', 'Text', 'DocumentID', 'DocumentTitle', 'SentenceID', 'Label', 'Text_type']
     return concatenated[col_relevant].copy()
 
+
 def vectorize_unique_text(model, list_of_str):
     "returns a dict to map vectors to strings"
     vecs = model.encode(list_of_str)
     return dict(zip(list(list_of_str), vecs))
+
 
 def load_bert_model(name="all-mpnet-base-v2"):
     """Instantiate a sentence-level DistilBERT model."""
     print('IM RUNNING bert model')
 
     return SentenceTransformer(name)
+
 
 def load_transformed_data(data, _model):
     """Instantiate a sentence-level DistilBERT model."""
@@ -119,10 +122,17 @@ def load_transformed_data(data, _model):
     # with open(os.path.join(PARENT_DIR, 'Text.pickle'), 'wb') as handle:
     #     pickle.dump(text_mapper, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(os.path.join(PARENT_DIR, 'Text.pickle'), 'rb') as handle:
+    with open(os.path.join(PARENT_DIR, 'data/Text.pickle'), 'rb') as handle:
         text_mapper = pickle.load(handle)
 
     return text_mapper
+
+
+
+
+
+
+
 
 def project_to_manifold(_df):
     print('IM RUNNING manifold')
@@ -152,7 +162,8 @@ data['cluster'] = clusterer.labels_
 # COLOR MAPPING
 categories = data['cluster'].unique()
 # create a list of colors for each point in the trace. %24 is the length of colormap
-data['color'] = [colors.qualitative.Alphabet[cat%24] for cat in data['cluster']]
+data['color'] = [colors.qualitative.Alphabet[cat % 24] for cat in data['cluster']]
+
 
 @app.callback(
     Output('output_first', 'children'),
@@ -164,6 +175,7 @@ def cb_render(n_submit, input_value):
         SEED_INPUT = input_value
         return f"You entered: {input_value}"
 
+
 @app.callback(
     Output('my-dropdown', 'options'),
     [Input('seed-input', 'value'),
@@ -173,7 +185,7 @@ def update_options(*vals):
     # THIS IS WHERE THE CHOICES GET CREATED
     global SEED_INPUT
     global PAST_Q
-    if not vals[1]: # of it vals[0] has changed
+    if not vals[1]:  # of it vals[0] has changed
         selected_value = vals[0]
         SEED_INPUT.append(vals[0])
     else:
@@ -188,7 +200,7 @@ def update_options(*vals):
     close_ix = np.argpartition(distances.T, 5)[0]
 
     choices_raw = list(data.iloc[close_ix[:20]]['Text'].values)
-    choices = list(set(choices_raw).difference(set(PAST_Q))) #remove past questions
+    choices = list(set(choices_raw).difference(set(PAST_Q)))  # remove past questions
     options = [{'label': f'Question: {i}', 'value': i} for i in choices]
 
     # Don't know what this one does
@@ -219,7 +231,7 @@ def display_output(selected_value):
 def update_scatter_plot(selected_category):
     global PAST_Q
 
-    to_show = data[data.Text.isin(PAST_Q + [selected_category] )]
+    to_show = data[data.Text.isin(PAST_Q + [selected_category])]
     new_trace = go.Scatter3d(
         x=to_show["x"],
         y=to_show["y"],
@@ -229,10 +241,12 @@ def update_scatter_plot(selected_category):
             # size=10,
             color=to_show['color']),
         hovertemplate='<b>%{text}</b><extra></extra>',
-        text = [title for title in to_show["Text"].values] # [title for title in df.Title],
+        text=[title for title in to_show["Text"].values]  # [title for title in df.Title],
     )
     fig.add_trace(new_trace)
     return fig
 
+
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    # app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', port=8050, debug=True)

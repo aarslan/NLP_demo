@@ -54,7 +54,7 @@ def load_transformed_data(data, _model):
     # with open(os.path.join(PARENT_DIR, 'Text.pickle'), 'wb') as handle:
     #     pickle.dump(text_mapper, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    with open(os.path.join(PARENT_DIR, 'Text.pickle'), 'rb') as handle:
+    with open(os.path.join(PARENT_DIR, 'data/Text.pickle'), 'rb') as handle:
         text_mapper = pickle.load(handle)
 
     return text_mapper
