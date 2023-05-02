@@ -51,9 +51,8 @@ app.layout = dbc.Container([
         dbc.Col(
             html.Div([
                 html.H5('Answer:'),
-                html.Div(id='output',
-                         style={'margin-left': '15px', 'height': '300px', 'width': '100%', 'overflowY': 'scroll'})
-            ]),
+                html.Div(id='output')
+            ], style={'margin-left': '15px', 'height': '800px', 'width': '100%', 'overflowY': 'scroll'}),
             width=2
         ),
         dbc.Col(
@@ -149,7 +148,7 @@ def display_output(selected_value):
     qid = data[data['Text'] == selected_value]['QuestionID'].values[0]
     answers = data_answers[data_answers.QuestionID == qid]['Text']
     max_len = min(len(answers), 5)
-    answers = " ".join(answers[:max_len])[:750]
+    answers = " ".join(answers[:max_len])
     return f'{answers}.'
 
 
