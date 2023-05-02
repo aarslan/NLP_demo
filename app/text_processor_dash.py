@@ -9,7 +9,7 @@ from sklearn.metrics import pairwise_distances
 import plotly.graph_objs as go
 import plotly.colors as colors
 
-from nlp_demo.app.model import read_data, load_bert_model, load_transformed_data, project_to_manifold
+from model import read_data, load_bert_model, load_transformed_data, project_to_manifold
 
 layout = go.Layout(
     scene=dict(
@@ -79,7 +79,7 @@ data_all = read_data()
 model = load_bert_model()
 text_mapper = load_transformed_data(data_all, model)
 q_mask = data_all['Text_type'] == 'q'
-data = data_all[q_mask].copy().head(100) #TODO
+data = data_all[q_mask].copy()
 data_answers = data_all[~q_mask].copy()
 
 Text_vec_raw = data['Text'].map(text_mapper)
