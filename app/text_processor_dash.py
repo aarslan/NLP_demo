@@ -20,29 +20,19 @@ PAST_Q = []
 
 PARENT_DIR = os.path.dirname(sys.path[0]) if os.path.isfile(sys.path[0]) else sys.path[0]
 
-layout = {
-    'showlegend': False,
-    'height': 800, 'width': 800,
-    'hovermode': "x",
-    'xaxis': {
-        # 'range': [0.2, 1],
-        'showgrid': False,  # thin lines in the background
-        'zeroline': False,  # thick line at x=0
-        'visible': False,  # numbers below
-    },  # the same for yaxis
-    'yaxis': {
-        # 'range': [0.2, 1],
-        'showgrid': False,  # thin lines in the background
-        'zeroline': False,  # thick line at x=0
-        'visible': False,  # numbers below
-    },  # the same for yaxis
-}
+layout = go.Layout(
+    scene=dict(
+        xaxis=dict(showticklabels=False),
+        yaxis=dict(showticklabels=False),
+        zaxis=dict(showticklabels=False),
+    ),
+    showlegend=False,
+)
 
 fig = go.Figure(data=[], layout=layout)
-fig.update_layout({'xaxis': {'visible': False},
-                   'yaxis': {'visible': False}})
+fig.update_layout(height=800, width=800)
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.CERULEAN])
+app = dash.Dash(__name__)  # , external_stylesheets=[dbc.themes.CERULEAN])
 
 app.layout = dbc.Container([
     dbc.Row([
@@ -50,13 +40,13 @@ app.layout = dbc.Container([
             [dcc.Input(
                 id="seed-input",
                 type='text',
-                placeholder="What's on your mind? Type a topic",
+                placeholder="Type a topic to start",
                 debounce=True,
-                n_submit=0),
+                n_submit=0,
+                style={'width': 'auto'}),
                 html.Div(id='output_first')
-            ], width=5, style={'margin-left': '15px', 'margin-top': '50px', 'margin-right': '15px'})
-    ]
-    ),
+            ], width='auto', style={'margin-left': '15px', 'margin-top': '50px', 'margin-right': '15px'})
+    ]),
     dbc.Row([
         dbc.Col(
             [dcc.Dropdown(
@@ -65,22 +55,32 @@ app.layout = dbc.Container([
                 options=[],
                 value=None)]
             , width=10, style={'margin-left': '15px', 'margin-top': '10px', 'margin-right': '15px'})
-    ]
-    ),
+    ]),
     dbc.Row([
-        dbc.Col([html.Div(id='output')]
-                , width=2, style={'margin-left': '15px', 'margin-top': '20px', 'margin-right': '5px'}),
-        dbc.Col([dcc.Graph(id='scatter-plot', figure=fig)])
-    ]
-    ),
+        dbc.Col(
+            html.Div([
+                html.H5('Answer:'),
+                html.Div(id='output',
+                         style={'margin-left': '15px', 'height': '300px', 'width': '100%', 'overflowY': 'scroll'})
+            ]),
+            width=2
+        ),
+        dbc.Col(
+            dcc.Graph(id='scatter-plot', figure=fig),
+            width=12
+        )
+    ], style={'display': 'flex', 'flex-wrap': 'nowrap'}),
     dbc.Row([
         html.Div([
             html.P(
-                'Data source: Yi Yang, Wen-tau Yih, and Christopher Meek. 2015. WikiQA: A Challenge Dataset for Open-Domain Question Answering. In Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing, pages 2013–2018'),
+                'Data source: Yi Yang, Wen-tau Yih, and Christopher Meek. 2015. '
+                'WikiQA: A Challenge Dataset for Open-Domain Question Answering. '
+                'In Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing, '
+                'pages 2013–2018', style={'fontSize': 10}),
         ])
-    ]
-    )
-]
+    ]),
+    dcc.Store(id='past-ali-values', data=[])
+], fluid=True
 )
 
 
@@ -128,12 +128,6 @@ def load_transformed_data(data, _model):
     return text_mapper
 
 
-
-
-
-
-
-
 def project_to_manifold(_df):
     print('IM RUNNING manifold')
     res = TSNE(n_components=3, learning_rate='auto', init='random', early_exaggeration=18, random_state=42,
@@ -159,8 +153,8 @@ data['x'], data['y'], data['z'] = embeddings[:, 0], embeddings[:, 1], embeddings
 
 clusterer = KMeans(n_clusters=24, random_state=0, n_init="auto").fit(data[['x', 'y', 'z']])
 data['cluster'] = clusterer.labels_
-# COLOR MAPPING
 categories = data['cluster'].unique()
+# COLOR MAPPING
 # create a list of colors for each point in the trace. %24 is the length of colormap
 data['color'] = [colors.qualitative.Alphabet[cat % 24] for cat in data['cluster']]
 
@@ -219,8 +213,8 @@ def display_output(selected_value):
     qid = data[data['Text'] == selected_value]['QuestionID'].values[0]
     answers = data_answers[data_answers.QuestionID == qid]['Text']
     max_len = min(len(answers), 5)
-    answers = " ".join(answers[:max_len])
-    return f'Answer: {answers}.'
+    answers = " ".join(answers[:max_len])[:750]
+    return f'{answers}.'
 
 
 # Define the callback function
@@ -248,5 +242,4 @@ def update_scatter_plot(selected_category):
 
 
 if __name__ == '__main__':
-    # app.run_server(debug=True)
     app.run_server(host='0.0.0.0', port=8050, debug=True)
