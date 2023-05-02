@@ -4,21 +4,12 @@ import dash_bootstrap_components as dbc
 from dash import html
 from dash.dependencies import Input, Output, State
 import numpy as np
-import pickle
-import pandas as pd
-from sentence_transformers import SentenceTransformer
-from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances
 import plotly.graph_objs as go
 import plotly.colors as colors
-import os
-import sys
 
-SEED_INPUT = []
-PAST_Q = []
-
-PARENT_DIR = os.path.dirname(sys.path[0]) if os.path.isfile(sys.path[0]) else sys.path[0]
+from nlp_demo.app.model import read_data, load_bert_model, load_transformed_data, project_to_manifold
 
 layout = go.Layout(
     scene=dict(
@@ -32,7 +23,7 @@ layout = go.Layout(
 fig = go.Figure(data=[], layout=layout)
 fig.update_layout(height=800, width=800)
 
-app = dash.Dash(__name__)  # , external_stylesheets=[dbc.themes.CERULEAN])
+app = dash.Dash(__name__ , external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 app.layout = dbc.Container([
     dbc.Row([
@@ -79,69 +70,16 @@ app.layout = dbc.Container([
                 'pages 2013–2018', style={'fontSize': 10}),
         ])
     ]),
-    dcc.Store(id='past-ali-values', data=[])
+    dcc.Store(id='past-questions', data=[])
 ], fluid=True
 )
-
-
-def read_data():
-    """Read the data from local."""
-    data = os.path.join(PARENT_DIR, 'data', 'WikiQACorpus', 'WikiQA.tsv')
-    d = pd.read_csv(data, delimiter='\t')
-    q = d.drop_duplicates(subset='Question').copy()
-    q.rename({'Question': 'Text'}, axis=1, inplace=True)
-    q['SentenceID'] = None
-    q['Text_type'] = 'q'
-
-    s = d.copy()
-    s.rename({'Sentence': 'Text'}, axis=1, inplace=True)
-    s['Text_type'] = 's'
-
-    concatenated = pd.concat([q, s])
-    col_relevant = ['QuestionID', 'Text', 'DocumentID', 'DocumentTitle', 'SentenceID', 'Label', 'Text_type']
-    return concatenated[col_relevant].copy()
-
-
-def vectorize_unique_text(model, list_of_str):
-    "returns a dict to map vectors to strings"
-    vecs = model.encode(list_of_str)
-    return dict(zip(list(list_of_str), vecs))
-
-
-def load_bert_model(name="all-mpnet-base-v2"):
-    """Instantiate a sentence-level DistilBERT model."""
-    print('IM RUNNING bert model')
-
-    return SentenceTransformer(name)
-
-
-def load_transformed_data(data, _model):
-    """Instantiate a sentence-level DistilBERT model."""
-
-    # text_mapper = vectorize_unique_text(_model, data['Text'].unique())
-    # with open(os.path.join(PARENT_DIR, 'Text.pickle'), 'wb') as handle:
-    #     pickle.dump(text_mapper, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-    with open(os.path.join(PARENT_DIR, 'data/Text.pickle'), 'rb') as handle:
-        text_mapper = pickle.load(handle)
-
-    return text_mapper
-
-
-def project_to_manifold(_df):
-    print('IM RUNNING manifold')
-    res = TSNE(n_components=3, learning_rate='auto', init='random', early_exaggeration=18, random_state=42,
-               perplexity=45, metric='cosine', n_jobs=8) \
-        .fit_transform(np.array(_df['Text_vec'].to_list()))
-    return res
-
 
 # Load data and models
 data_all = read_data()
 model = load_bert_model()
 text_mapper = load_transformed_data(data_all, model)
 q_mask = data_all['Text_type'] == 'q'
-data = data_all[q_mask].copy()
+data = data_all[q_mask].copy().head(100) #TODO
 data_answers = data_all[~q_mask].copy()
 
 Text_vec_raw = data['Text'].map(text_mapper)
@@ -166,27 +104,25 @@ data['color'] = [colors.qualitative.Alphabet[cat % 24] for cat in data['cluster'
 )
 def cb_render(n_submit, input_value):
     if n_submit > 0:
-        SEED_INPUT = input_value
         return f"You entered: {input_value}"
-
 
 @app.callback(
     Output('my-dropdown', 'options'),
     [Input('seed-input', 'value'),
-     Input('my-dropdown', 'value')])
-def update_options(*vals):
+     Input('my-dropdown', 'value')],
+    State('past-questions', 'data')
+)
+def update_options(val0, val1, past_q):
     #######
     # THIS IS WHERE THE CHOICES GET CREATED
-    global SEED_INPUT
-    global PAST_Q
-    if not vals[1]:  # of it vals[0] has changed
-        selected_value = vals[0]
-        SEED_INPUT.append(vals[0])
-    else:
-        selected_value = vals[1]
-        PAST_Q.append(vals[1])
 
-    if not vals[0] and not vals[1]:
+    if not val1:  # of it vals[0] has changed
+        selected_value = val0
+    else:
+        selected_value = val1
+        past_q.append(val1)
+
+    if not val0 and not val1:
         selected_value = 'placeholder'
 
     vecs = model.encode([selected_value])
@@ -194,7 +130,7 @@ def update_options(*vals):
     close_ix = np.argpartition(distances.T, 5)[0]
 
     choices_raw = list(data.iloc[close_ix[:20]]['Text'].values)
-    choices = list(set(choices_raw).difference(set(PAST_Q)))  # remove past questions
+    choices = list(set(choices_raw).difference(set(past_q)))  # remove past questions
     options = [{'label': f'Question: {i}', 'value': i} for i in choices]
 
     # Don't know what this one does
@@ -220,12 +156,11 @@ def display_output(selected_value):
 # Define the callback function
 @app.callback(
     dash.dependencies.Output('scatter-plot', 'figure'),
-    [dash.dependencies.Input('my-dropdown', 'value')]
-)
-def update_scatter_plot(selected_category):
-    global PAST_Q
+    [dash.dependencies.Input('my-dropdown', 'value')],
+    State('past-questions', 'data'))
+def update_scatter_plot(selected_category, past_q):
 
-    to_show = data[data.Text.isin(PAST_Q + [selected_category])]
+    to_show = data[data.Text.isin(past_q + [selected_category])]
     new_trace = go.Scatter3d(
         x=to_show["x"],
         y=to_show["y"],
