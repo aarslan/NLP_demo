@@ -1,14 +1,13 @@
-import dash
-from dash import dcc
-import dash_bootstrap_components as dbc
-from dash import html
-from dash.dependencies import Input, Output, State
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import pairwise_distances
 import plotly.io as pio
 import plotly.graph_objs as go
 import plotly.colors as colors
+import dash
+from dash import html, dcc
+from dash.dependencies import Input, Output, State
+import dash_bootstrap_components as dbc
 
 from model import read_data, load_bert_model, load_transformed_data, project_to_manifold
 
