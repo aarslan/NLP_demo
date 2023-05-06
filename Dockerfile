@@ -9,4 +9,4 @@ WORKDIR "/app"
 RUN pip install -r /tmp/requirements.txt
 
 EXPOSE 8050
-ENTRYPOINT [ "python3", "text_processor_dash.py" ]
+ENTRYPOINT [ "python3", "app.py" ]
